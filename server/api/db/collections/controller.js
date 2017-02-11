@@ -1,7 +1,9 @@
 var MongoClient = require('mongodb').MongoClient;
 var database;
 function sort(collections){
-  quicksort(collections,0,collections.length-1);
+  collections.sort(function(a,b){
+    return -a.localeCompare(b);
+  });
 }
 function quicksort(collections,low,high){
   if(low<high){
@@ -22,31 +24,6 @@ function quicksort(collections,low,high){
     quicksort(collections,i+1,high);
   }
 }
-
-function transform(object){
-  if(object instanceof Array){
-    if(object.length>0){
-      if(typeof(object[0])==='boolean'){
-        var out = 0;
-        out |= (object[object.length-1] ? 1 : 0);
-        for(var i=object.length-2;i>0;i--){
-          out = out << 1;
-          out |= (object[i] ? 1 : 0);
-        }
-        return out;
-      }
-      else{
-        return object;
-      }
-    }
-  }
-  if(object instanceof Object){
-    //generics object
-    return transform(object.value);
-  }
-  return object;
-}
-
 MongoClient.connect('mongodb://localhost/data',function(err,db){
   if(err){
     console.error(err);
@@ -56,14 +33,13 @@ MongoClient.connect('mongodb://localhost/data',function(err,db){
 });
 
 export function list(req,res){
-  database.listCollections({name:/[1-12].[1-31].[1-9]+/}).toArray(function (err,array) {
+  database.listCollections({name:/[1-9]+.[1-9]+.[0-9]+/}).toArray(function (err,array) {
     if(err)console.error(err);
     var collections = [];
     array.forEach(function(value,index,array){
       collections.push(value.name);
     });
     sort(collections);
-    console.log(collections);
     res.status(200).send(collections);
   });
 }
@@ -79,48 +55,63 @@ export function download(req,res){
     return;
   }
   var collection = database.collection(name);
-  collection.find().project({_id:0}).forEach(function(element)
-  {
-    if(fileType=="json"){
-      res.write(JSON.stringify(element)+'\r\n');
-    }
-  },function(err){
-    if(err){
-      console.error(err);
-      res.status(402).end();
-      return;
-    }
-    res.status(200).send();
-  });
+  if(fileType=="json"){
+    collection.find().project({_id:0,raw:0}).forEach(function(element)
+    {
+        res.write(JSON.stringify(element)+'\r\n');
+    },function(err){
+      if(err){
+        console.error(err);
+        res.status(402).end();
+        return;
+      }
+      res.status(200).send();
+    });
+  }
+  else if(fileType=="csv"){
+    collection.find().project({_id:0,CAN_Id:1,Timestamp:1,raw:1}).forEach(function(element){
+      var string = "";
+      string+=element.CAN_Id.toString();
+      string+=",";
+      string+=element.Timestamp.toString();
+      string+=",";
+      for(let data of element.raw){
+        string+=data.toString();
+        string+=","
+      }
+      string+="\n";
+      res.write(string);
+    },function(err){
+      if(err){
+        console.error(err);
+        res.status(402).end();
+        return;
+      }
+      res.status(200).send();
+    });
+  }
 }
 export function printData(req,res){
+  var start, end;
   var name = req.params.collection;
-  var start = parseInt(req.query.start) || 0;
-  var end = parseInt(req.query.end) || 10;
+  if(req.query.start) start = parseInt(req.query.start);
+  if(req.query.end) end = parseInt(req.query.end);
   var collection = database.collection(name);
-  collection.find().skip(start).limit(end-start).toArray(function(err,elements)
+  if((start||start==0)&&end)collection.find().project({_id:0}).skip(start).limit(end-start).toArray(function(err,elements)
   {
     if(err){
       console.error(err);
       res.status(404);
     }
-    for(var i=0;i<elements.length;i++){
-      elements[i].data = [];
-      for(var key in elements[i]){
-        if(key!="CAN_Id"&&key!="Timestamp"&&key!="_id"&&key!="data"&&key!="generics") {
-          elements[i].data.push(transform(elements[i][key]));
-          delete elements[i][key];
-        }
-        else if(key == "generics"){
-          for(var element of elements[i][key]){
-            var transformed = transform(element);
-            elements[i].data.push(transformed);
-          }
-        }
-      }
-      delete elements[i]._id;
-    }
-    console.log(elements);
     res.status(200).send(elements);
   });
+  else{
+    collection.find().project({_id:0}).toArray(function(err,elements){
+      if(err){
+        console.error(err);
+        res.status(404);
+      }
+      res.status(200).send(elements);
+  });
+  }
 }

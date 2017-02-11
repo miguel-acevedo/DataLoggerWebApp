@@ -293,7 +293,12 @@ gulp.task('start:client', cb => {
         cb();
     });
 });
-
+gulp.task('start:client:prod',cb => {
+    whenServerReady(() => {
+        open('http://localhost:'+config.port);
+        cb();
+    });
+});
 gulp.task('start:server', () => {
     process.env.NODE_ENV = process.env.NODE_ENV || 'development';
     config = require(`./${serverPath}/config/environment`);
@@ -372,7 +377,7 @@ gulp.task('serve:dist', cb => {
         'build',
         'env:all',
         'env:prod',
-        ['start:server:prod', 'start:client'],
+        ['start:server:prod', 'start:client:prod'],
         cb);
 });
 
@@ -473,6 +478,7 @@ gulp.task('build', cb => {
         [
             'copy:extras',
             'copy:assets',
+            'copy:defaults',
             'copy:fonts:dist',
             'copy:server',
             'webpack:dist'
@@ -505,7 +511,11 @@ gulp.task('revReplaceWebpack', function() {
         .pipe(plugins.revReplace({manifest: gulp.src(`${paths.dist}/${paths.client.revManifest}`)}))
         .pipe(gulp.dest('dist/client'));
 });
-
+gulp.task('copy:defaults', () => {
+    return gulp.src([
+        `${serverPath}/api/db/defaults.conf`
+    ]).pipe(gulp.dest(`${paths.dist}/${serverPath}/api/db`));
+})
 gulp.task('copy:extras', () => {
     return gulp.src([
         `${clientPath}/favicon.ico`,

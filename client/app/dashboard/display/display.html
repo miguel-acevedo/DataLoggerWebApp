@@ -1,0 +1,28 @@
+<script src="ng-file-upload-shim.js"></script> <!-- for no html5 browsers support -->
+<script src="ng-file-upload.js"></script>
+<div>
+  <div class="row">
+    <div class="col-sm-8 col-md-10">
+      <h2 class="heading">Analysis <small>Upload Data for Analysis</small></h2>
+    </div>
+    <div class="col-sm-2 col-md-1">
+      <a ui-sref="dashboard.overview" class="btn btn-primary btn-outline btn-rounded">Overview</a>
+    </div>
+    <div class="col-sm-2 col-md-1">
+      <a ui-sref="dashboard.car" class="btn btn-primary btn-outline btn-rounded">Car</a>
+    </div>
+  </div>
+	<div class="jumbotron">
+		<div class="container">
+      <div class="col-md-6 col-sm-12">
+        <form name="form">
+          <div class="btn btn-primary btn-outline" name="csv" ngf-select="upload($file)">Upload on file select</div>
+        </form>
+      </div>
+      <div class="col-md-6 col-sm-12">
+        <select ng-options="item for item in collections" ng-model="selected"></select>
+        <button class="btn btn-primary" name="lookup" ng-click="load()">Load from DB</button>
+      </div>
+		</div>
+	</div>
+</div>

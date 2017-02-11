@@ -20,17 +20,20 @@ class parseStream extends stream.Transform{ //ES6 Javascript is now just Java, a
         {
             //console.log(value);
             this.push(JSON.stringify(value));
-        }.bind(this)).catch(function(){
-            console.error("missing some parser");
+        }.bind(this)).catch(function(err){
+            if(process.env.NODE_ENV=="development"){
+                if(err) console.error(err);
+                console.error("missing some parser");
+            }
         }.bind(this));
         next();
     }
     getArray(data,map){
         var out = [];
-        for(var i=Math.floor(map.offset/8)+2;i<data.length;i+=map.array.subLength/8){
+        for(var i=0;i<map.length;i++){
             out.push(this.getValue(data.slice(),
                 {dataType:map.array.subDataType,
-                    offset:(i-2)*8,
+                    offset:map.offset+i*map.array.subLength,
                     length:map.array.subLength
                 }));
         }
@@ -128,14 +131,20 @@ class parseStream extends stream.Transform{ //ES6 Javascript is now just Java, a
         var out = new Object();
         out.CAN_Id = data[0];
         out.Timestamp = data[1];
+        out.raw = new Array();
+        for(var i=2;i<data.length;i++){
+            out.raw.push(data[i].toString(16));
+        }
         if(this.load.status=='pending')this.load.done();
-        for(var i=0;i<this.specification.length;i++)
-        {
-            if(data[0]==this.specification[i].CAN_Id) {
-                return self.beginParsing(out,data,this.specification[i]);
+        if(this.specification){
+            for(var i=0;i<this.specification.length;i++)
+            {
+                if(data[0]==this.specification[i].CAN_Id) {
+                    return self.beginParsing(out,data,this.specification[i]);
+                }
             }
         }
-        console.log("looking up database");
+        //console.log("looking up database");
         return Descriptor.model.findOne({CAN_Id:data[0]}).exec().then(function(doc){
         //TODO run validation
             try{
